@@ -153,7 +153,7 @@ export default function ContentPlanPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Content Plan</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Контент-план</h1>
           <p className="text-muted-foreground text-sm font-medium mt-1">Огляд та керування процесом створення контенту</p>
         </div>
         <Button

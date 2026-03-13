@@ -50,6 +50,10 @@ class AuthorProfile(BaseModel):
     about: str
     avoid_words: str
     gemini_api_key: Optional[str] = None
+    linkedin_client_id: Optional[str] = None
+    linkedin_client_secret: Optional[str] = None
+    linkedin_access_token: Optional[str] = None
+    linkedin_person_id: Optional[str] = None
 
 
 class ExamplePost(BaseModel):
@@ -115,6 +119,10 @@ class UpdateProfileRequest(BaseModel):
     about: Optional[str] = None
     avoid_words: Optional[str] = None
     gemini_api_key: Optional[str] = None
+    linkedin_client_id: Optional[str] = None
+    linkedin_client_secret: Optional[str] = None
+    linkedin_access_token: Optional[str] = None
+    linkedin_person_id: Optional[str] = None
 
 
 class AddExamplePostRequest(BaseModel):

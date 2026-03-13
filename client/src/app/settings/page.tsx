@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Sparkles, PenLine, Trash2, Plus,
   Save, Check, Loader2, FileText,
-  User, ShieldAlert, BookOpen, Key, Eye, EyeOff
+  User, ShieldAlert, BookOpen, Key, Link2, CheckCircle2, XCircle
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { apiUrl } from '@/lib/api';
@@ -18,6 +18,10 @@ interface AuthorProfile {
   about: string;
   avoid_words: string;
   gemini_api_key?: string;
+  linkedin_client_id?: string;
+  linkedin_client_secret?: string;
+  linkedin_access_token?: string;
+  linkedin_person_id?: string;
 }
 
 interface ExamplePost {
@@ -29,12 +33,15 @@ interface ExamplePost {
 export default function SettingsPage() {
   const [profile, setProfile] = useState<AuthorProfile>({
     name: '', expertise: '', tone: '', about: '', avoid_words: '', gemini_api_key: '',
+    linkedin_client_id: '', linkedin_client_secret: '',
   });
   const [examplePosts, setExamplePosts] = useState<ExamplePost[]>([]);
   const [newPost, setNewPost] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [linkedinConnected, setLinkedinConnected] = useState(false);
+  const [linkedinConnecting, setLinkedinConnecting] = useState(false);
 
   useEffect(() => {
     fetch(apiUrl('/api/settings')).then(r => r.json()).then(data => {
@@ -42,7 +49,40 @@ export default function SettingsPage() {
       if (data.examplePosts) setExamplePosts(data.examplePosts);
       setLoading(false);
     });
+    fetch(apiUrl('/api/linkedin/status')).then(r => r.json()).then(data => {
+      setLinkedinConnected(data.connected);
+    }).catch(() => { });
+
+    // Handle OAuth callback params
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('linkedin_success')) {
+      setLinkedinConnected(true);
+      window.history.replaceState({}, '', '/settings');
+    }
   }, []);
+
+  const handleConnectLinkedIn = async () => {
+    setLinkedinConnecting(true);
+    try {
+      // Save credentials first
+      await fetch(apiUrl('/api/settings'), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          linkedin_client_id: profile.linkedin_client_id,
+          linkedin_client_secret: profile.linkedin_client_secret,
+        }),
+      });
+      const res = await fetch(apiUrl('/api/linkedin/auth-url'));
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+      else alert(data.detail || 'Error');
+    } catch {
+      alert('Помилка підключення');
+    } finally {
+      setLinkedinConnecting(false);
+    }
+  };
 
   const handleSaveProfile = async () => {
     setSaving(true);
@@ -94,7 +134,7 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Settings</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Налаштування</h1>
           <p className="text-muted-foreground text-sm font-medium mt-1">Особистий стиль, тон та приклади контенту</p>
         </div>
       </div>
@@ -136,8 +176,9 @@ export default function SettingsPage() {
           </div>
 
           {/* Negative Context Card */}
-          <div className="relative rounded-[1.5rem] bg-card border border-border/50 p-6 md:p-8 overflow-hidden group transition-all duration-300 hover:border-border/80 hover:shadow-xl hover:shadow-black/10 focus-within:ring-1 focus-within:ring-ring focus-within:border-rose-500/50">
-            <div className="absolute inset-0 bg-gradient-to-r from-rose-500/0 to-rose-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <div className="relative rounded-[1.5rem] bg-card border border-border/50 p-6 md:p-8 overflow-hidden group transition-all duration-300 hover:border-rose-500/30 hover:shadow-xl hover:shadow-black/10 focus-within:ring-1 focus-within:ring-ring focus-within:border-rose-500/50">
+            <div className="absolute inset-0 bg-gradient-to-br from-rose-500/0 via-transparent to-rose-500/[0.02] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none group-hover:bg-rose-500/10 transition-colors duration-500" />
 
             <div className="relative z-10 space-y-6">
               <div className="flex items-center gap-3 border-b border-border/40 pb-4">
@@ -164,14 +205,15 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
- 
+
           {/* AI Settings Card */}
-          <div className="relative rounded-[1.5rem] bg-card border border-border/50 p-6 md:p-8 overflow-hidden group transition-all duration-300 hover:border-border/80 hover:shadow-xl hover:shadow-black/10 focus-within:ring-1 focus-within:ring-ring focus-within:border-amber-500/50">
-            <div className="absolute inset-0 bg-gradient-to-r from-amber-500/0 to-amber-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            
+          <div className="relative rounded-[1.5rem] bg-card border border-border/50 p-6 md:p-8 overflow-hidden group transition-all duration-300 hover:border-blue-500/30 hover:shadow-xl hover:shadow-black/10">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 via-transparent to-blue-500/[0.02] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none group-hover:bg-primary/10 transition-colors duration-500" />
+
             <div className="relative z-10 space-y-6">
               <div className="flex items-center gap-3 border-b border-border/40 pb-4">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-inner">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 shadow-inner">
                   <Key className="w-5 h-5" />
                 </div>
                 <div>
@@ -179,7 +221,7 @@ export default function SettingsPage() {
                   <p className="text-sm text-muted-foreground">Персональні ключі доступу до моделей</p>
                 </div>
               </div>
- 
+
               <div className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground px-1">Google Gemini API Key</label>
@@ -196,6 +238,79 @@ export default function SettingsPage() {
                     Ваш персональний ключ дозволить AI працювати без затримок. Отримати його можна безкоштовно в <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-primary hover:underline font-semibold">Google AI Studio</a>.
                   </p>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* LinkedIn Integration Card */}
+          <div className="relative rounded-[1.5rem] bg-card border border-border/50 p-6 md:p-8 overflow-hidden group transition-all duration-300 hover:border-blue-500/30 hover:shadow-xl hover:shadow-black/10 focus-within:ring-1 focus-within:ring-ring focus-within:border-blue-500/50">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 via-transparent to-blue-600/[0.02] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none group-hover:bg-primary/10 transition-colors duration-500" />
+
+            <div className="relative z-10 space-y-6">
+              <div className="flex items-center gap-3 border-b border-border/40 pb-4">
+                <div className="w-10 h-10 rounded-xl bg-blue-600/10 flex items-center justify-center text-blue-500 shadow-inner">
+                  <Link2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-foreground">LinkedIn</h2>
+                  <p className="text-sm text-muted-foreground">Публікуйте пости напряму з додатку</p>
+                </div>
+                <div className="ml-auto">
+                  {linkedinConnected ? (
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Підключено
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-zinc-400 bg-zinc-500/10 border border-zinc-500/20 px-3 py-1.5 rounded-full">
+                      <XCircle className="w-3.5 h-3.5" /> Не підключено
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Щоб увімкнути публікацію, створіть безкоштовний додаток на{' '}
+                  <a href="https://www.linkedin.com/developers/" target="_blank" className="text-blue-400 hover:underline font-semibold">LinkedIn Developers</a>{' '}
+                  і вкажіть Redirect URI: <code className="text-xs bg-zinc-800 px-2 py-0.5 rounded font-mono text-zinc-300">http://localhost:8000/api/linkedin/callback</code>
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground px-1">Client ID</label>
+                    <Input
+                      placeholder="Ваш LinkedIn Client ID"
+                      value={profile.linkedin_client_id || ''}
+                      onChange={(e) => setProfile(prev => ({ ...prev, linkedin_client_id: e.target.value }))}
+                      className="bg-zinc-950/40 border-border/80 focus:bg-background h-12 rounded-xl transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground px-1">Client Secret</label>
+                    <Input
+                      type="password"
+                      placeholder="Ваш LinkedIn Client Secret"
+                      value={profile.linkedin_client_secret || ''}
+                      onChange={(e) => setProfile(prev => ({ ...prev, linkedin_client_secret: e.target.value }))}
+                      className="bg-zinc-950/40 border-border/80 focus:bg-background h-12 rounded-xl transition-all"
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleConnectLinkedIn}
+                  disabled={linkedinConnecting || !profile.linkedin_client_id || !profile.linkedin_client_secret}
+                  className="h-11 px-6 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-lg shadow-blue-600/20 transition-all active:scale-[0.98] disabled:opacity-60"
+                >
+                  {linkedinConnecting ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Підключення...</>
+                  ) : linkedinConnected ? (
+                    <><CheckCircle2 className="w-4 h-4 mr-2" /> Переконнектити LinkedIn</>
+                  ) : (
+                    <><Link2 className="w-4 h-4 mr-2" /> Підключити LinkedIn</>
+                  )}
+                </Button>
               </div>
             </div>
           </div>
@@ -221,7 +336,7 @@ export default function SettingsPage() {
         <div className="lg:col-span-5 flex flex-col h-full space-y-6 lg:space-y-8">
           <div className="rounded-[1.5rem] bg-zinc-950/30 border border-border/40 p-6 md:p-8 flex-1 flex flex-col relative overflow-hidden group">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-inner">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 shadow-inner">
                 <BookOpen className="w-5 h-5" />
               </div>
               <div>
@@ -244,7 +359,7 @@ export default function SettingsPage() {
                   onClick={handleAddPost}
                   disabled={!newPost.trim()}
                   size="sm"
-                  className="absolute bottom-3 right-3 rounded-lg bg-amber-500 text-amber-950 hover:bg-amber-400 font-medium tracking-wide shadow-sm"
+                  className="absolute bottom-3 right-3 rounded-lg bg-blue-500 text-white hover:bg-blue-400 font-medium tracking-wide shadow-sm"
                 >
                   <Plus className="w-4 h-4 mr-1" /> Додати
                 </Button>

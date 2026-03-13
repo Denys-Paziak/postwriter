@@ -102,35 +102,96 @@ def generate_carousel(
     return f"/static/visuals/{item_id}_carousel.pdf"
 
 
+def _generate_image_prompt(title: str, post_text: str, api_key: str) -> str:
+    """Ask Gemini to generate a professional English image prompt for Pollinations."""
+    # Base fallback prompt (Generic English prompt)
+    fallback = "Professional business cover, minimalist abstract corporate background, high quality photography"
+
+    if not api_key:
+        return fallback
+
+    prompt = (
+        "Based on the following LinkedIn post title and content, create a short (max 30 words), "
+        "professional English image prompt for an AI generator.\n\n"
+        f"Title: {title}\n"
+        f"Content: {post_text[:500]}\n\n"
+        "Rules:\n"
+        "- The prompt MUST BE ONLY IN ENGLISH.\n"
+        "- NO TEXT in the image.\n"
+        "- Style: Clean, modern, minimalist, business photography.\n"
+        "- Output ONLY the prompt string."
+    )
+    
+    # Try gemini-2.0-flash, then fallback to gemini-1.5-flash (which usually has different quota)
+    for model_name in ["gemini-2.0-flash", "gemini-1.5-flash"]:
+        try:
+            response = _client(api_key).models.generate_content(
+                model=model_name,
+                contents=prompt,
+            )
+            res = response.text.strip().replace('"', '')
+            if len(res) > 5:
+                return res
+        except Exception:
+            continue
+            
+    return fallback
+
+
 def generate_cover_image(
     item_id: int,
     title: str,
     post_text: str,
     api_key: str,
 ) -> str:
-    """Generate a 1:1 cover image via Pollinations.ai (free, no key required).
-
-    Calls https://image.pollinations.ai/prompt/{prompt}?width=1080&height=1080&model=flux
-    and saves the result as PNG.
+    """Generate a 1:1 cover image via Pollinations.ai.
+    Uses Gemini to translate/refine the prompt into English for better reliability.
+    Falls back to smaller dimensions or faster models if needed.
     """
     from urllib.parse import quote
+    import time
 
     STATIC_DIR.mkdir(parents=True, exist_ok=True)
-    hook = (post_text or title).split(".")[0][:150]
-    prompt = (
-        f"Professional LinkedIn post cover image, {title}, {hook}, "
-        "minimalist corporate style, clean abstract background, no text, "
-        "high quality photography, modern business aesthetic"
-    )
-    url = (
-        f"https://image.pollinations.ai/prompt/{quote(prompt)}"
-        "?width=1080&height=1080&model=flux&nologo=true&enhance=true"
-    )
-    with httpx.Client(timeout=120.0, follow_redirects=True) as http:
-        resp = http.get(url)
-        resp.raise_for_status()
-        image_bytes = resp.content
+    
+    # Generate an English prompt (shorter is better for speed/reliability)
+    image_prompt = _generate_image_prompt(title, post_text, api_key)
+    
+    # Strict ASCII cleaning - avoid Pollinations 500s on special chars
+    safe_prompt = "".join(c for c in image_prompt if (ord(c) < 128) and (c.isalnum() or c.isspace() or c in ",.-"))
+    if not safe_prompt.strip():
+        safe_prompt = "Professional business abstract background"
+    
+    # Try multiple models in order of quality/stability
+    models = ["flux", "turbo", "unity"]
+    last_error = ""
 
-    output_path = STATIC_DIR / f"{item_id}_cover.png"
-    output_path.write_bytes(image_bytes)
-    return f"/static/visuals/{item_id}_cover.png"
+    for i, model in enumerate(models):
+        # Using 512x512 as a fallback for stability if initial 720x720 fails
+        size = 720 if i == 0 else 512
+        url = (
+            f"https://image.pollinations.ai/prompt/{quote(safe_prompt)}"
+            f"?width={size}&height={size}&model={model}&nologo=true&enhance=true&safe=true"
+        )
+        
+        try:
+            # First attempt (flux) should be relatively fast or we skip it
+            # Subsequent attempts (turbo/unity) can be longer
+            timeout = 30.0 if model == "flux" else 60.0
+            
+            with httpx.Client(timeout=timeout, follow_redirects=True) as http:
+                resp = http.get(url)
+                resp.raise_for_status()
+                image_bytes = resp.content
+
+            output_path = STATIC_DIR / f"{item_id}_cover.png"
+            output_path.write_bytes(image_bytes)
+            return f"/static/visuals/{item_id}_cover.png"
+        except Exception as e:
+            last_error = str(e)
+            if i < len(models) - 1:
+                time.sleep(2) # Small pause before trying next model
+            continue
+
+    if "429" in last_error:
+        raise Exception("Помилка: занадто багато запитів. Спробуйте через 1-2 хвилини.")
+    raise Exception(f"Не вдалося згенерувати зображення. Всі моделі (Flux, Turbo) перевантажені або недоступні. [{last_error}]")

@@ -98,6 +98,14 @@ def _init_tables(db: sqlite3.Connection) -> None:
     profile_cols = [r["name"] for r in db.execute("PRAGMA table_info(author_profile)").fetchall()]
     if "gemini_api_key" not in profile_cols:
         db.execute("ALTER TABLE author_profile ADD COLUMN gemini_api_key TEXT DEFAULT ''")
+    if "linkedin_client_id" not in profile_cols:
+        db.execute("ALTER TABLE author_profile ADD COLUMN linkedin_client_id TEXT DEFAULT ''")
+    if "linkedin_client_secret" not in profile_cols:
+        db.execute("ALTER TABLE author_profile ADD COLUMN linkedin_client_secret TEXT DEFAULT ''")
+    if "linkedin_access_token" not in profile_cols:
+        db.execute("ALTER TABLE author_profile ADD COLUMN linkedin_access_token TEXT DEFAULT ''")
+    if "linkedin_person_id" not in profile_cols:
+        db.execute("ALTER TABLE author_profile ADD COLUMN linkedin_person_id TEXT DEFAULT ''")
 
     # Migration: add feed_selector to domain_profiles if missing
     dp_cols = [r["name"] for r in db.execute("PRAGMA table_info(domain_profiles)").fetchall()]

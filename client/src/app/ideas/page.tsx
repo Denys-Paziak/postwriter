@@ -7,6 +7,7 @@ import {
   Loader2, Plus, ExternalLink, Globe,
   Lightbulb, X, RefreshCw, Check, ArrowRight
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { apiUrl } from '@/lib/api';
 
 interface DiscoveredArticle {
@@ -31,7 +32,7 @@ function getDomain(url: string) {
 
 function SourceDot({ status }: { status?: SourceStatus }) {
   if (status === 'checking') return <Loader2 className="w-3 h-3 animate-spin text-muted-foreground shrink-0" />;
-  if (status === 'ok') return <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 inline-block" />;
+  if (status === 'ok') return <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 inline-block shadow-[0_0_8px_rgba(59,130,246,0.5)]" />;
   if (status === 'error') return <span className="w-2 h-2 rounded-full bg-red-500 shrink-0 inline-block" />;
   return <span className="w-2 h-2 rounded-full bg-border/60 shrink-0 inline-block" />;
 }
@@ -186,7 +187,7 @@ export default function IdeasPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Ideas</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Ідеї</h1>
           <p className="text-muted-foreground text-sm font-medium mt-1">Знаходьте статті та додавайте в контент-план</p>
         </div>
       </div>
@@ -271,7 +272,7 @@ export default function IdeasPage() {
                   >
                     {scanningAll
                       ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          {scanProgress ? `Сканування ${scanProgress.current}/${scanProgress.total}...` : 'Скануємо...'}</>
+                        {scanProgress ? `Сканування ${scanProgress.current}/${scanProgress.total}...` : 'Скануємо...'}</>
                       : <><RefreshCw className="w-3.5 h-3.5" />Знайти статті з усіх джерел</>
                     }
                   </Button>
@@ -323,11 +324,19 @@ export default function IdeasPage() {
                   return (
                     <div
                       key={article.url}
-                      className={`group rounded-[1.25rem] border transition-all p-6 flex flex-col gap-4 ${isAdded
-                          ? 'border-border/30 bg-card/20'
-                          : 'border-border/60 bg-card hover:border-border hover:shadow-xl hover:shadow-black/5'
-                        }`}
+                      className={cn(
+                        "group relative rounded-[1.25rem] border transition-all duration-300 p-6 flex flex-col gap-4 overflow-hidden",
+                        isAdded
+                          ? "border-border/30 bg-card/20"
+                          : "border-border/60 bg-card hover:border-blue-500/30 hover:shadow-xl hover:shadow-black/10"
+                      )}
                     >
+                      {!isAdded && (
+                        <>
+                          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 via-transparent to-blue-500/[0.03] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none group-hover:bg-primary/10 transition-colors duration-500" />
+                        </>
+                      )}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                           <Globe className="w-3.5 h-3.5 opacity-70" />
@@ -361,14 +370,14 @@ export default function IdeasPage() {
                           onClick={() => handleAddToPlan(article)}
                           disabled={isAdding || isAdded}
                           className={`h-9 px-4 text-sm font-medium transition-all rounded-lg ${isAdded
-                              ? 'bg-secondary/50 text-muted-foreground border border-transparent hover:bg-secondary/50 cursor-default'
-                              : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm'
+                            ? 'bg-secondary/50 text-muted-foreground border border-transparent hover:bg-secondary/50 cursor-default'
+                            : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm'
                             }`}
                         >
                           {isAdding
                             ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Додаємо</>
                             : isAdded
-                              ? <><Check className="w-4 h-4 mr-2 text-emerald-500" />В плані</>
+                              ? <><Check className="w-4 h-4 mr-2 text-blue-500" />В плані</>
                               : <><Plus className="w-4 h-4 mr-2" />Додати до плану</>}
                         </Button>
                       </div>

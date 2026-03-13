@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from routers import articles, content_plan, research, generate, settings, sources, stats, visual
+from routers import articles, content_plan, research, generate, settings, sources, stats, visual, linkedin
 
 app = FastAPI(
     title="SMM API",
@@ -36,6 +36,7 @@ app.include_router(settings.router, prefix="/api")
 app.include_router(sources.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
 app.include_router(visual.router, prefix="/api")
+app.include_router(linkedin.router, prefix="/api")
 
 # Serve generated files (carousel PDFs, cover images)
 _static_dir = Path(__file__).parent / "static"
