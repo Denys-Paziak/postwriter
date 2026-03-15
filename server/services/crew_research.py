@@ -1,9 +1,10 @@
 """
-ResearchCrew — two-agent crew for real audience research.
+ResearchCrew — three-agent crew for real audience research.
 
 Agents (sequential):
   1. WebResearcher   — searches the web for real audience discussions using GeminiSearchTool
   2. ResearchAnalyst — synthesises raw findings into a structured Ukrainian report
+  3. ResearchReviewer — verifies the report against the raw findings and removes speculation
 
 The crew runs in a daemon thread; a Queue bridges the blocking crew
 thread to the async FastAPI SSE generator via run_in_executor.
@@ -19,6 +20,7 @@ from tools.gemini_search import GeminiSearchTool
 
 
 def _make_llm(api_key: str | None = None) -> LLM:
+    """Create the LLM instance used by the research agents."""
     return LLM(
         model="gemini/gemini-2.5-flash",
         api_key=api_key or os.environ.get("GEMINI_API_KEY"),
@@ -67,6 +69,27 @@ def _build_crew(queue: Queue, api_key: str | None = None) -> Crew:
             "Ти читаєш хаотичні дані і перетворюєш їх на чіткі інсайти. "
             "Твої звіти завжди конкретні, без «води», орієнтовані на практику. "
             "Ти пишеш виключно українською мовою."
+        ),
+        llm=llm,
+        verbose=True,
+        allow_delegation=False,
+        memory=False,
+    )
+
+    # ------------------------------------------------------------------
+    # Agent 3: ResearchReviewer
+    # ------------------------------------------------------------------
+    research_reviewer = Agent(
+        role="Рецензент дослідження аудиторії",
+        goal=(
+            "Перевірити звіт на точність, прибрати фантазії та залишити лише те, "
+            "що дійсно випливає з реальних знахідок дослідника."
+        ),
+        backstory=(
+            "Ти дуже прискіпливий рецензент досліджень. "
+            "Ти не дозволяєш аналітику підміняти реальні сигнали аудиторії "
+            "власними здогадками. Якщо у сирих даних чогось немає — ти це не вигадуєш. "
+            "Ти вичищаєш звіт до конкретного, корисного і доказового стану."
         ),
         llm=llm,
         verbose=True,
@@ -132,13 +155,40 @@ def _build_crew(queue: Queue, api_key: str | None = None) -> Crew:
         context=[search_task],
         callback=lambda _: queue.put({
             "type": "progress",
-            "message": "Аналітик склав звіт, зберігаємо результат...",
+            "message": "Аналітик склав звіт, рецензент перевіряє точність...",
+        }),
+    )
+
+    # ------------------------------------------------------------------
+    # Task 3: Review
+    # ------------------------------------------------------------------
+    review_task = Task(
+        description=(
+            "Перевір структурований звіт аналітика проти сирих знахідок дослідника.\n\n"
+            "Заголовок статті: {title}\n\n"
+            "ПРАВИЛА ПЕРЕВІРКИ:\n"
+            "- Не залишай у звіті те, чого немає у сирих даних\n"
+            "- Якщо якийсь блок слабко підтверджений, перефразуй його обережніше\n"
+            "- Не вигадуй нових питань, болів чи порад від себе\n"
+            "- Залишай тільки формулювання, корисні для написання LinkedIn-посту\n"
+            "- Формат секцій має залишитись ТОЧНО таким самим\n\n"
+            "На виході дай фінальну, перевірену версію звіту в тому самому форматі."
+        ),
+        expected_output=(
+            "Перевірений структурований звіт у тому самому форматі, без вигаданих висновків "
+            "і без метакоментарів."
+        ),
+        agent=research_reviewer,
+        context=[search_task, analysis_task],
+        callback=lambda _: queue.put({
+            "type": "progress",
+            "message": "Рецензент підтвердив звіт, зберігаємо результат...",
         }),
     )
 
     return Crew(
-        agents=[web_researcher, research_analyst],
-        tasks=[search_task, analysis_task],
+        agents=[web_researcher, research_analyst, research_reviewer],
+        tasks=[search_task, analysis_task, review_task],
         process=Process.sequential,
         verbose=True,
     )

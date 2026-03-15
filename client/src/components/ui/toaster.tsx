@@ -6,15 +6,15 @@ import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 
 const variantStyles: Record<ToastVariant, string> = {
-  default: "bg-zinc-900 border-zinc-800 text-zinc-100",
-  error:   "bg-zinc-950 border-red-500/30   text-zinc-100 shadow-[0_0_20px_rgba(239,68,68,0.1)]",
-  success: "bg-zinc-950 border-emerald-500/30 text-zinc-100 shadow-[0_0_20px_rgba(16,185,129,0.1)]",
-  warning: "bg-zinc-950 border-amber-500/30  text-zinc-100 shadow-[0_0_20px_rgba(245,158,11,0.1)]",
+  default: "bg-card border-border text-foreground",
+  error:   "bg-card border-destructive/30   text-foreground shadow-[0_0_20px_rgba(239,68,68,0.1)]",
+  success: "bg-card border-emerald-500/30 text-foreground shadow-[0_0_20px_rgba(16,185,129,0.1)]",
+  warning: "bg-card border-amber-500/30  text-foreground shadow-[0_0_20px_rgba(245,158,11,0.1)]",
 };
 
 const iconStyles: Record<ToastVariant, string> = {
-  default: "text-zinc-400",
-  error:   "text-red-400",
+  default: "text-muted-foreground",
+  error:   "text-destructive",
   success: "text-emerald-400",
   warning: "text-amber-400",
 };

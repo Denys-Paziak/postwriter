@@ -247,9 +247,22 @@ def get_profile() -> dict:
 def update_profile(data: dict) -> dict:
     """
     Partially update the author profile.
-    Accepted keys: name, expertise, tone, about, avoid_words
+    Accepted keys: name, expertise, tone, about, avoid_words,
+    gemini_api_key, linkedin_client_id, linkedin_client_secret,
+    linkedin_access_token, linkedin_person_id
     """
-    allowed = {"name", "expertise", "tone", "about", "avoid_words", "gemini_api_key"}
+    allowed = {
+        "name",
+        "expertise",
+        "tone",
+        "about",
+        "avoid_words",
+        "gemini_api_key",
+        "linkedin_client_id",
+        "linkedin_client_secret",
+        "linkedin_access_token",
+        "linkedin_person_id",
+    }
     fields = [(k, v) for k, v in data.items() if k in allowed]
     if fields:
         set_clause = ", ".join(f"{k} = ?" for k, _ in fields)

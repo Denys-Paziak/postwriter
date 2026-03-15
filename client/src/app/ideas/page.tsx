@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Loader2, Plus, ExternalLink, Globe,
-  Lightbulb, X, RefreshCw, Check, ArrowRight
+  Lightbulb, X, RefreshCw, Check, ArrowRight, Wand2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { apiUrl } from '@/lib/api';
@@ -32,12 +33,13 @@ function getDomain(url: string) {
 
 function SourceDot({ status }: { status?: SourceStatus }) {
   if (status === 'checking') return <Loader2 className="w-3 h-3 animate-spin text-muted-foreground shrink-0" />;
-  if (status === 'ok') return <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 inline-block shadow-[0_0_8px_rgba(59,130,246,0.5)]" />;
-  if (status === 'error') return <span className="w-2 h-2 rounded-full bg-red-500 shrink-0 inline-block" />;
+  if (status === 'ok') return <span className="w-2 h-2 rounded-full bg-primary shrink-0 inline-block shadow-[0_0_8px_rgba(59,130,246,0.5)]" />;
+  if (status === 'error') return <span className="w-2 h-2 rounded-full bg-destructive shrink-0 inline-block" />;
   return <span className="w-2 h-2 rounded-full bg-border/60 shrink-0 inline-block" />;
 }
 
 export default function IdeasPage() {
+  const router = useRouter();
   const [url, setUrl] = useState('');
   const [articles, setArticles] = useState<DiscoveredArticle[]>([]);
   const [sources, setSources] = useState<SavedSource[]>([]);
@@ -46,6 +48,7 @@ export default function IdeasPage() {
   const [scanningAll, setScanningAll] = useState(false);
   const [scanProgress, setScanProgress] = useState<{ current: number; total: number } | null>(null);
   const [addingUrls, setAddingUrls] = useState<Set<string>>(new Set());
+  const [generatingUrls, setGeneratingUrls] = useState<Set<string>>(new Set());
   const [addedUrls, setAddedUrls] = useState<Set<string>>(new Set());
   const [error, setError] = useState('');
 
@@ -176,6 +179,39 @@ export default function IdeasPage() {
     }
   };
 
+  const handleGenerateArticle = async (article: DiscoveredArticle) => {
+    setGeneratingUrls(prev => new Set(prev).add(article.url));
+    setError('');
+
+    try {
+      const res = await fetch(apiUrl('/api/articles/extract-and-plan'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: article.url }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.detail || 'Не вдалося підготувати статтю');
+        return;
+      }
+
+      setAddedUrls(prev => new Set(prev).add(article.url));
+
+      const planItemId = data?.planItem?.id;
+      if (typeof planItemId === 'number') {
+        router.push(`/content-plan/${planItemId}`);
+        return;
+      }
+
+      setError('Статтю додано в план, але не вдалося відкрити редактор.');
+    } catch {
+      setError('Помилка мережі');
+    } finally {
+      setGeneratingUrls(prev => { const n = new Set(prev); n.delete(article.url); return n; });
+    }
+  };
+
   const handleDeleteSource = async (id: number) => {
     await fetch(apiUrl(`/api/sources?id=${id}`), { method: 'DELETE' });
     setSources(prev => prev.filter(s => s.id !== id));
@@ -192,20 +228,38 @@ export default function IdeasPage() {
         </div>
       </div>
 
-      {/* Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="space-y-8">
+        <div className="rounded-[1.5rem] bg-card border border-border/40 px-5 py-4 relative overflow-hidden shadow-sm">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-border/50 bg-background/50 text-muted-foreground">
+                  <Globe className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-base font-semibold text-foreground">Джерела</h2>
+                  <p className="text-xs text-muted-foreground">Додавайте сайти й скануйте їх в один клік</p>
+                </div>
+              </div>
 
-        {/* Left Column */}
-        <div className="lg:col-span-4 flex flex-col gap-6">
-          <div className="rounded-[1.25rem] bg-card border border-border/40 p-5 flex flex-col relative overflow-hidden shadow-sm">
-            <h2 className="text-base font-semibold mb-4 text-foreground flex items-center gap-2">
-              <Globe className="w-4 h-4 text-muted-foreground" />
-              Джерела
-            </h2>
+              {sources.length > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => scanSources(sources)}
+                  disabled={loading || scanningAll}
+                  className="h-9 w-full lg:w-auto text-sm gap-2 border-border/60"
+                >
+                  {scanningAll
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      {scanProgress ? `Сканування ${scanProgress.current}/${scanProgress.total}...` : 'Скануємо...'}</>
+                    : <><RefreshCw className="w-3.5 h-3.5" />Сканувати всі джерела</>
+                  }
+                </Button>
+              )}
+            </div>
 
-            <div className="flex flex-col gap-3">
-              {/* URL input */}
-              <div className="relative">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <div className="relative flex-1 max-w-4xl">
                 <Input
                   placeholder="Вставте URL сайту..."
                   value={url}
@@ -223,78 +277,74 @@ export default function IdeasPage() {
                 </Button>
               </div>
 
-              {error && (
-                <div className="p-3 rounded-lg border border-destructive/20 bg-destructive/10 text-destructive text-sm flex items-center justify-between">
-                  <span>{error}</span>
-                  <button onClick={() => setError('')}><X className="w-3.5 h-3.5" /></button>
-                </div>
-              )}
-
-              {/* Sources list */}
               {sources.length > 0 && (
-                <div className="mt-1">
-                  <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-2">
-                    Збережені ({sources.length})
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    {sources.map((source) => (
-                      <div
-                        key={source.id}
-                        className="group flex items-center gap-2 overflow-hidden rounded-md border border-transparent hover:bg-background hover:border-border/60 transition-colors text-sm pl-2 pr-1 py-1.5"
-                      >
-                        <SourceDot status={sourceStatuses[source.id]} />
-                        <button
-                          onClick={() => handleDiscover(source.url)}
-                          disabled={loading || scanningAll}
-                          className="flex-1 text-muted-foreground hover:text-foreground transition-colors text-left truncate"
-                          title={source.url}
-                        >
-                          {source.name}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSource(source.id)}
-                          className="p-1.5 text-muted-foreground/0 group-hover:text-muted-foreground/60 hover:!text-destructive transition-colors rounded-md shrink-0"
-                          title="Видалити"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Scan all button */}
-                  <Button
-                    variant="outline"
-                    onClick={() => scanSources(sources)}
-                    disabled={loading || scanningAll}
-                    className="w-full mt-3 h-9 text-sm gap-2 border-border/60"
-                  >
-                    {scanningAll
-                      ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        {scanProgress ? `Сканування ${scanProgress.current}/${scanProgress.total}...` : 'Скануємо...'}</>
-                      : <><RefreshCw className="w-3.5 h-3.5" />Знайти статті з усіх джерел</>
-                    }
-                  </Button>
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground shrink-0">
+                  <span>Збережені</span>
+                  <span className="rounded-full border border-border/50 bg-background/40 px-2 py-1 text-foreground">
+                    {sources.length}
+                  </span>
                 </div>
               )}
             </div>
+
+            {error && (
+              <div className="max-w-4xl p-3 rounded-lg border border-destructive/20 bg-destructive/10 text-destructive text-sm flex items-center justify-between">
+                <span>{error}</span>
+                <button onClick={() => setError('')}><X className="w-3.5 h-3.5" /></button>
+              </div>
+            )}
+
+            {sources.length > 0 && (
+              <div className="flex flex-wrap gap-2 border-t border-border/30 pt-3">
+                {sources.map((source) => (
+                  <div
+                    key={source.id}
+                    className="group flex items-center gap-2 rounded-full border border-border/60 bg-background/50 px-3 py-1.5 text-sm transition-colors hover:border-border hover:bg-background"
+                  >
+                    <SourceDot status={sourceStatuses[source.id]} />
+                    <button
+                      onClick={() => handleDiscover(source.url)}
+                      disabled={loading || scanningAll}
+                      className="max-w-[180px] truncate text-left text-muted-foreground transition-colors hover:text-foreground"
+                      title={source.url}
+                    >
+                      {source.name}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteSource(source.id)}
+                      className="rounded-md p-0.5 text-muted-foreground/50 transition-colors hover:text-destructive"
+                      title="Видалити"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right Column: Feed */}
-        <div className="lg:col-span-8 flex flex-col gap-4">
+        <div className="flex flex-col gap-4">
 
           {/* Skeletons */}
           {(loading || scanningAll) && articles.length === 0 && (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="rounded-2xl border border-border/30 bg-card/20 p-5 animate-pulse flex items-start gap-4">
-                  <div className="flex-1 space-y-3 pt-1">
-                    <div className="h-4 bg-muted/60 rounded w-3/4" />
-                    <div className="h-3 bg-muted/30 rounded w-1/2" />
+                <div key={i} className="rounded-2xl border border-border/30 bg-card/20 p-5 animate-pulse flex flex-col gap-4 min-h-[260px]">
+                  <div className="flex items-center justify-between">
+                    <div className="h-4 bg-muted/30 rounded w-20" />
+                    <div className="h-8 w-8 bg-muted/20 rounded-lg" />
                   </div>
-                  <div className="h-9 w-28 bg-muted/40 rounded-xl" />
+                  <div className="space-y-3 pt-1">
+                    <div className="h-4 bg-muted/60 rounded w-3/4" />
+                    <div className="h-4 bg-muted/40 rounded w-2/3" />
+                    <div className="h-3 bg-muted/30 rounded w-full" />
+                    <div className="h-3 bg-muted/30 rounded w-5/6" />
+                  </div>
+                  <div className="mt-auto flex gap-3">
+                    <div className="h-9 flex-1 bg-muted/40 rounded-xl" />
+                    <div className="h-9 flex-1 bg-muted/20 rounded-xl" />
+                  </div>
                 </div>
               ))}
             </div>
@@ -315,25 +365,27 @@ export default function IdeasPage() {
                 </button>
               </div>
 
-              <div className="flex flex-col gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                 {articles.map((article) => {
                   const isAdding = addingUrls.has(article.url);
+                  const isGenerating = generatingUrls.has(article.url);
                   const isAdded = addedUrls.has(article.url);
                   const domain = getDomain(article.url);
+                  const isBusy = isAdding || isGenerating;
 
                   return (
                     <div
                       key={article.url}
                       className={cn(
-                        "group relative rounded-[1.25rem] border transition-all duration-300 p-6 flex flex-col gap-4 overflow-hidden",
+                        "group relative rounded-[1.25rem] border transition-all duration-300 p-6 flex flex-col gap-4 overflow-hidden min-h-[320px]",
                         isAdded
                           ? "border-border/30 bg-card/20"
-                          : "border-border/60 bg-card hover:border-blue-500/30 hover:shadow-xl hover:shadow-black/10"
+                          : "border-border/60 bg-card hover:border-primary/30 hover:shadow-xl hover:shadow-black/10"
                       )}
                     >
                       {!isAdded && (
                         <>
-                          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 via-transparent to-blue-500/[0.03] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                          <div className="absolute inset-0 bg-gradient-to-br from-primary/0 via-transparent to-primary/[0.03] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                           <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none group-hover:bg-primary/10 transition-colors duration-500" />
                         </>
                       )}
@@ -354,30 +406,42 @@ export default function IdeasPage() {
                       </div>
 
                       <div className="space-y-2.5">
-                        <h3 className={`text-xl font-semibold leading-tight tracking-tight ${isAdded ? 'text-muted-foreground' : 'text-foreground group-hover:text-primary transition-colors'}`}>
+                        <h3 className={`text-lg font-semibold leading-tight tracking-tight ${isAdded ? 'text-muted-foreground' : 'text-foreground group-hover:text-primary transition-colors'}`}>
                           {article.title}
                         </h3>
                         {article.excerpt && (
-                          <p className="text-[15px] text-muted-foreground/80 line-clamp-3 leading-relaxed">
+                          <p className="text-[15px] text-muted-foreground/80 line-clamp-4 leading-relaxed">
                             {article.excerpt}
                           </p>
                         )}
                       </div>
 
-                      <div className="pt-2 flex items-center gap-3">
+                      <div className="pt-2 mt-auto flex flex-wrap items-center gap-3">
                         <Button
                           size="sm"
+                          onClick={() => handleGenerateArticle(article)}
+                          disabled={isBusy}
+                          className="h-9 px-4 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm flex-1 min-w-[180px]"
+                        >
+                          {isGenerating
+                            ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Переходимо</>
+                            : <><Wand2 className="w-4 h-4 mr-2" />Згенерувати статтю</>}
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
                           onClick={() => handleAddToPlan(article)}
-                          disabled={isAdding || isAdded}
-                          className={`h-9 px-4 text-sm font-medium transition-all rounded-lg ${isAdded
+                          disabled={isBusy || isAdded}
+                          className={`h-9 px-4 text-sm font-medium transition-all rounded-lg flex-1 min-w-[180px] ${isAdded
                             ? 'bg-secondary/50 text-muted-foreground border border-transparent hover:bg-secondary/50 cursor-default'
-                            : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm'
+                            : 'border-border/60 bg-background/30 text-foreground hover:bg-secondary/40'
                             }`}
                         >
                           {isAdding
                             ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Додаємо</>
                             : isAdded
-                              ? <><Check className="w-4 h-4 mr-2 text-blue-500" />В плані</>
+                              ? <><Check className="w-4 h-4 mr-2 text-primary" />В плані</>
                               : <><Plus className="w-4 h-4 mr-2" />Додати до плану</>}
                         </Button>
                       </div>
@@ -390,7 +454,7 @@ export default function IdeasPage() {
 
           {/* Empty State */}
           {articles.length === 0 && !loading && !scanningAll && (
-            <div className="flex flex-col items-center justify-center py-24 text-center border border-dashed border-border/50 rounded-[1.5rem] bg-zinc-950/20">
+            <div className="flex flex-col items-center justify-center py-24 text-center border border-dashed border-border/50 rounded-[1.5rem] bg-background/20">
               <div className="w-16 h-16 rounded-full bg-card border border-border/60 flex items-center justify-center mb-6 shadow-sm">
                 <Lightbulb className="w-6 h-6 text-muted-foreground" />
               </div>

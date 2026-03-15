@@ -1,21 +1,19 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Search,
   Sparkles,
   Globe,
   Loader2,
   FileText,
-  X,
   PenLine,
-  MoreHorizontal,
   Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useRouter } from 'next/navigation';
-import { apiUrl } from '@/lib/api';
+import { usePathname, useRouter } from 'next/navigation';
+import { apiFetch, apiUrl } from '@/lib/api';
 
 interface ArticleItem {
   id: number;
@@ -32,99 +30,90 @@ interface ArticleItem {
 const statusConfig = {
   draft: {
     label: 'Чернетка',
-    bg: 'bg-zinc-100 dark:bg-zinc-800/80',
-    color: 'text-zinc-600 dark:text-zinc-400',
-    border: 'border-zinc-200 dark:border-zinc-800',
-    dot: 'bg-zinc-400 dark:bg-zinc-500',
+    style: { background: 'var(--status-draft-bg)', color: 'var(--status-draft)' },
+    dotStyle: { background: 'var(--status-draft)' },
   },
   in_progress: {
     label: 'В роботі',
-    bg: 'bg-blue-50 dark:bg-blue-500/10',
-    color: 'text-blue-600 dark:text-blue-400',
-    border: 'border-blue-200 dark:border-blue-500/30',
-    dot: 'bg-blue-500 dark:bg-blue-400',
+    style: { background: 'var(--status-progress-bg)', color: 'var(--status-progress)' },
+    dotStyle: { background: 'var(--status-progress)' },
   },
   published: {
     label: 'Опубліковано',
-    bg: 'bg-emerald-50 dark:bg-emerald-500/10',
-    color: 'text-emerald-600 dark:text-emerald-400',
-    border: 'border-emerald-200 dark:border-emerald-500/30',
-    dot: 'bg-emerald-500 dark:bg-emerald-400',
-  }
+    style: { background: 'var(--status-published-bg)', color: 'var(--status-published)' },
+    dotStyle: { background: 'var(--status-published)' },
+  },
 };
 
 export default function ContentPlanPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const [items, setItems] = useState<ArticleItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showManual, setShowManual] = useState(false);
-  const [manualTitle, setManualTitle] = useState('');
-  const [manualContent, setManualContent] = useState('');
-  const [manualUrl, setManualUrl] = useState('');
-  const [manualError, setManualError] = useState('');
-  const [manualSaving, setManualSaving] = useState(false);
-  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
-  const modalRef = useRef<HTMLDivElement>(null);
+  const [creatingDraft, setCreatingDraft] = useState(false);
 
-  useEffect(() => {
-    fetchItems();
-  }, []);
-
-  useEffect(() => {
-    if (openMenuId === null) return;
-    const close = () => setOpenMenuId(null);
-    document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
-  }, [openMenuId]);
-
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
-      const res = await fetch(apiUrl('/api/content-plan'));
-      if (res.ok) {
-        const data = await res.json();
-        setItems(data);
-      }
+      if (!silent) setLoading(true);
+      const res = await apiFetch('/api/content-plan', {}, { fresh: true });
+      if (!res.ok) throw new Error('Failed to fetch content plan');
+
+      const data = await res.json();
+      setItems(data);
     } catch (error) {
       console.error('Failed to fetch plan items:', error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  };
+  }, []);
 
-  const handleManualSubmit = async () => {
-    if (!manualTitle.trim() || !manualContent.trim()) {
-      setManualError("Назва та текст статті обов'язкові");
-      return;
-    }
-    setManualSaving(true);
-    setManualError('');
+  useEffect(() => {
+    void fetchItems();
+  }, [fetchItems, pathname]);
+
+  useEffect(() => {
+    const refreshItems = () => { void fetchItems(true); };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshItems();
+      }
+    };
+
+    window.addEventListener('focus', refreshItems);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', refreshItems);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [fetchItems]);
+
+  const handleCreateArticle = async () => {
+    setCreatingDraft(true);
     try {
-      const res = await fetch(apiUrl('/api/articles/manual-and-plan'), {
+      const res = await fetch(apiUrl('/api/articles/create-and-plan'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: manualTitle, content: manualContent, url: manualUrl || undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setManualError(data.detail || 'Помилка збереження');
-        return;
+        throw new Error(data.detail || 'Не вдалося створити чернетку');
       }
-      setShowManual(false);
-      setManualTitle('');
-      setManualContent('');
-      setManualUrl('');
-      fetchItems();
-    } catch {
-      setManualError('Помилка мережі');
+
+      const planItemId = data?.planItem?.id;
+      if (typeof planItemId !== 'number') {
+        throw new Error('Не вдалося відкрити редактор');
+      }
+
+      router.push(`/content-plan/${planItemId}?mode=write`);
+    } catch (error) {
+      console.error('Failed to create manual draft:', error);
     } finally {
-      setManualSaving(false);
+      setCreatingDraft(false);
     }
   };
 
   const handleDeleteItem = async (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
-    setOpenMenuId(null);
     await fetch(apiUrl(`/api/content-plan?id=${id}`), { method: 'DELETE' });
     setItems(prev => prev.filter(i => i.id !== id));
   };
@@ -157,82 +146,14 @@ export default function ContentPlanPage() {
           <p className="text-muted-foreground text-sm font-medium mt-1">Огляд та керування процесом створення контенту</p>
         </div>
         <Button
-          onClick={() => { setShowManual(true); setManualError(''); }}
+          onClick={handleCreateArticle}
+          disabled={creatingDraft}
           className="gap-2 h-9 px-4 text-sm"
         >
           <PenLine className="w-4 h-4" />
-          Додати вручну
+          {creatingDraft ? 'Створюємо...' : 'Створити статтю'}
         </Button>
       </div>
-
-      {/* Manual entry modal */}
-      {showManual && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowManual(false); }}
-        >
-          <div ref={modalRef} className="bg-card border border-border/60 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col gap-5 p-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Додати статтю вручну</h2>
-              <button onClick={() => setShowManual(false)} className="text-muted-foreground hover:text-foreground transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-foreground">Назва <span className="text-destructive">*</span></label>
-                <input
-                  type="text"
-                  value={manualTitle}
-                  onChange={e => setManualTitle(e.target.value)}
-                  placeholder="Заголовок статті..."
-                  className="h-10 px-3 rounded-lg border border-border/80 bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-foreground">Текст статті <span className="text-destructive">*</span></label>
-                <textarea
-                  value={manualContent}
-                  onChange={e => setManualContent(e.target.value)}
-                  placeholder="Вставте або напишіть текст статті..."
-                  rows={8}
-                  className="px-3 py-2.5 rounded-lg border border-border/80 bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-none leading-relaxed"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-foreground">
-                  URL <span className="text-muted-foreground text-xs font-normal">(необов'язково)</span>
-                </label>
-                <input
-                  type="text"
-                  value={manualUrl}
-                  onChange={e => setManualUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="h-10 px-3 rounded-lg border border-border/80 bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-              </div>
-
-              {manualError && (
-                <p className="text-sm text-destructive">{manualError}</p>
-              )}
-            </div>
-
-            <div className="flex gap-3 justify-end">
-              <Button variant="outline" onClick={() => setShowManual(false)} disabled={manualSaving}>
-                Скасувати
-              </Button>
-              <Button onClick={handleManualSubmit} disabled={manualSaving} className="gap-2">
-                {manualSaving ? <><Loader2 className="w-4 h-4 animate-spin" />Збереження...</> : 'Додати до плану'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-
 
       {/* Kanban Board Layout */}
       <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-6 pb-12 overflow-x-auto">
@@ -244,7 +165,7 @@ export default function ContentPlanPage() {
               {/* Column Header */}
               <div className="flex items-center justify-between px-1">
                 <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <div className={`w-2.5 h-2.5 rounded-full ${config.dot} shadow-sm`} />
+                  <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={config.dotStyle} />
                   {config.label}
                   <Badge variant="secondary" className="ml-1 text-xs px-2 bg-secondary/50 text-muted-foreground">
                     {colItems.length}
@@ -253,7 +174,7 @@ export default function ContentPlanPage() {
               </div>
 
               {/* Column Content */}
-              <div className="flex flex-col gap-4 min-h-[150px] rounded-2xl bg-zinc-950/20 border border-dashed border-border/40 p-3">
+              <div className="flex flex-col gap-4 min-h-[150px] rounded-2xl bg-background/20 border border-dashed border-border/40 p-3">
                 {colItems.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center py-10 text-center opacity-60">
                     <p className="text-sm text-muted-foreground">Немає карток</p>
@@ -266,7 +187,7 @@ export default function ContentPlanPage() {
                       <div
                         key={item.id}
                         className="group rounded-xl border border-border/60 bg-card/80 hover:bg-card hover:border-border hover:shadow-md transition-all cursor-pointer overflow-hidden p-4 flex flex-col gap-3 relative"
-                        onClick={() => { setOpenMenuId(null); router.push(`/content-plan/${item.id}`); }}
+                        onClick={() => { router.push(`/content-plan/${item.id}`); }}
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <span className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-widest bg-secondary/50 px-2 py-0.5 rounded-md truncate max-w-[120px]">
@@ -285,28 +206,13 @@ export default function ContentPlanPage() {
                                 <Sparkles className="w-3 h-3" />
                               </span>
                             ) : null}
-                            <div className="relative">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === item.id ? null : item.id); }}
-                                className="flex items-center justify-center w-6 h-6 rounded-md text-muted-foreground/0 group-hover:text-muted-foreground hover:bg-secondary hover:!text-foreground transition-colors"
-                              >
-                                <MoreHorizontal className="w-3.5 h-3.5" />
-                              </button>
-                              {openMenuId === item.id && (
-                                <div
-                                  className="absolute right-0 top-7 z-20 w-36 bg-popover border border-border/60 rounded-lg shadow-lg py-1 text-sm"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <button
-                                    onClick={(e) => handleDeleteItem(e, item.id)}
-                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-destructive hover:bg-destructive/10 transition-colors"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                    Видалити
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                            <button
+                              onClick={(e) => handleDeleteItem(e, item.id)}
+                              className="flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive transition-colors"
+                              title="Видалити"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </div>
 

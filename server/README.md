@@ -50,6 +50,7 @@ Base URL: `http://localhost:8000`
 | `POST` | `/api/articles/extract` | `{url}` | `Article` | Scrape & save a single article |
 | `POST` | `/api/articles/extract-and-plan` | `{url}` | `{article, planItem}` | Scrape + add to content plan |
 | `POST` | `/api/articles/manual-and-plan` | `{title, content, url?}` | `{article, planItem}` | Create manual article + add to content plan |
+| `POST` | `/api/articles/create-and-plan` | — | `{article, planItem}` | Create an empty manual draft + add it to content plan |
 
 ### Content Plan
 
@@ -67,7 +68,7 @@ Base URL: `http://localhost:8000`
 
 | Method | Path | Body | Response | Description |
 |--------|------|------|----------|-------------|
-| `POST` | `/api/research` | `{content_plan_id}` | SSE stream | Generate research with Google Search grounding |
+| `POST` | `/api/research` | `{content_plan_id}` | SSE stream | Generate research with Google Search grounding plus analyst/reviewer validation |
 
 SSE event format: `data: {"type": "progress|done|error", "message"?: "...", "item"?: {...}}`
 
@@ -75,20 +76,22 @@ SSE event format: `data: {"type": "progress|done|error", "message"?: "...", "ite
 
 | Method | Path | Body | Response | Description |
 |--------|------|------|----------|-------------|
-| `POST` | `/api/generate` | `{content_plan_id, tone}` | `ContentPlanItem` | Generate LinkedIn post |
+| `POST` | `/api/generate` | `{content_plan_id, tone}` | SSE stream | Generate LinkedIn post with strategy → draft → voice → humanity → critique → final review |
 
 `tone` values: `value` \| `opinion` \| `story` \| `discussion` \| `insight`
+
+Generation uses the content-plan article, optional audience research, author profile (`name`, `expertise`, `tone`, `about`, `avoid_words`), and up to 3 example posts. SSE event format: `data: {"type": "progress|done|error", "message"?: "...", "item"?: {...}}`
 
 ### Settings
 
 | Method | Path | Body / Query | Response | Description |
 |--------|------|-------------|----------|-------------|
 | `GET` | `/api/settings` | — | `{profile, examplePosts}` | Author profile + example posts |
-| `PATCH` | `/api/settings` | `UpdateProfileRequest` | `AuthorProfile` | Update profile |
+| `PATCH` | `/api/settings` | `UpdateProfileRequest` | `AuthorProfile` | Update profile and API/integration credentials |
 | `POST` | `/api/settings` | `{content}` | `ExamplePost` | Add example post |
 | `DELETE` | `/api/settings?id=<int>` | — | `{success}` | Delete example post |
 
-`UpdateProfileRequest` optional fields: `name`, `expertise`, `tone`, `about`, `avoid_words`
+`UpdateProfileRequest` optional fields: `name`, `expertise`, `tone`, `about`, `avoid_words`, `gemini_api_key`, `linkedin_client_id`, `linkedin_client_secret`, `linkedin_access_token`, `linkedin_person_id`
 
 ### Sources
 
@@ -97,6 +100,26 @@ SSE event format: `data: {"type": "progress|done|error", "message"?: "...", "ite
 | `GET` | `/api/sources` | — | `Source[]` | All source URLs |
 | `POST` | `/api/sources` | `{url}` | `Source` | Add source URL |
 | `DELETE` | `/api/sources?id=<int>` | — | `{success}` | Delete source |
+
+### Visual
+
+| Method | Path | Body | Response | Description |
+|--------|------|------|----------|-------------|
+| `POST` | `/api/visual/{item_id}/carousel` | — | `{carousel_url, item}` | Generate LinkedIn carousel PDF (5-7 slides, Gemini → fpdf2) |
+| `POST` | `/api/visual/{item_id}/image` | — | `{cover_image_url, item}` | Generate branded 720×720 PNG cover (Gemini → Pillow canvas) |
+
+Cover image: Gemini produces `{category, headline, tagline}` in Ukrainian → Pillow renders a dark-themed template with violet accent bar, category pill, headline (Inter Bold 54 px), tagline (Inter Regular 28 px), and "SMM Planner" branding. Inter fonts are auto-converted from WOFF subsets on first call and cached in `server/static/fonts/`.
+
+Files saved to `server/static/visuals/` and served at `/static/visuals/<id>_cover.png` / `<id>_carousel.pdf`.
+
+### LinkedIn
+
+| Method | Path | Body / Query | Response | Description |
+|--------|------|-------------|----------|-------------|
+| `GET` | `/api/linkedin/status` | — | `{connected}` | Check whether a LinkedIn account is connected |
+| `GET` | `/api/linkedin/auth-url` | — | `{url}` | Get LinkedIn OAuth authorization URL |
+| `GET` | `/api/linkedin/callback` | `?code=...` | Redirect | Exchange OAuth code for token and store it in the author profile |
+| `POST` | `/api/linkedin/publish/{item_id}` | — | `{success, item}` | Publish generated post text to LinkedIn and mark the plan item as `published` |
 
 ### Stats
 
@@ -139,6 +162,8 @@ File: `server/smm.db` (SQLite)
 | research | TEXT \| NULL | AI research findings |
 | notes | TEXT \| NULL | User notes |
 | scheduled_date | DATE \| NULL | Planned publish date |
+| carousel_url | TEXT \| NULL | Generated carousel PDF URL |
+| cover_image_url | TEXT \| NULL | Generated cover image URL |
 | created_at | DATETIME | Default: now |
 
 ### `author_profile`
@@ -150,6 +175,11 @@ File: `server/smm.db` (SQLite)
 | tone | TEXT | Preferred writing tone |
 | about | TEXT | Bio used in AI prompts |
 | avoid_words | TEXT | Comma-separated words to avoid |
+| gemini_api_key | TEXT | Optional per-user Gemini API key |
+| linkedin_client_id | TEXT | LinkedIn OAuth client id |
+| linkedin_client_secret | TEXT | LinkedIn OAuth client secret |
+| linkedin_access_token | TEXT | LinkedIn access token |
+| linkedin_person_id | TEXT | Connected LinkedIn member URN/person id |
 
 ### `example_posts`
 | Column | Type | Notes |
@@ -206,5 +236,7 @@ server/
     ├── generate.py      # /api/generate
     ├── settings.py      # /api/settings
     ├── sources.py       # /api/sources
-    └── stats.py         # /api/stats
+    ├── stats.py         # /api/stats
+    ├── visual.py        # /api/visual/*
+    └── linkedin.py      # /api/linkedin/*
 ```

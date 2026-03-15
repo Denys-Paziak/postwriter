@@ -1,7 +1,7 @@
 """
 Generate router — SSE endpoint for LinkedIn post generation.
 
-Uses GenerationCrew (ContentStrategist + Copywriter + VoiceEditor + HumanityEditor)
+Uses GenerationCrew (strategy + draft + voice + humanity + critique + final review)
 to produce high-quality, human-sounding posts. Streams progress in real-time.
 
 SSE event types:
@@ -46,11 +46,22 @@ async def generate(body: GenerateRequest):
             profile = db.get_profile()
             example_posts = db.get_example_posts()
 
-            # Build author context — always include custom API key if present
+            # Build author context — include all profile signals that can shape generation
             custom_key = (profile.get("gemini_api_key") or "").strip() or None
             author: dict | None = None
-            if profile.get("about") or profile.get("avoid_words") or example_posts or custom_key:
+            if (
+                profile.get("name")
+                or profile.get("expertise")
+                or profile.get("tone")
+                or profile.get("about")
+                or profile.get("avoid_words")
+                or example_posts
+                or custom_key
+            ):
                 author = {
+                    "name": profile.get("name") or None,
+                    "expertise": profile.get("expertise") or None,
+                    "preferred_tone": profile.get("tone") or None,
                     "about": profile.get("about") or None,
                     "avoid_words": profile.get("avoid_words") or None,
                     "gemini_api_key": custom_key,

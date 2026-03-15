@@ -99,3 +99,20 @@ def manual_and_plan(body: ManualArticleRequest):
         if "UNIQUE constraint" in msg:
             raise HTTPException(status_code=409, detail="Стаття з таким URL вже існує")
         raise HTTPException(status_code=500, detail=msg)
+
+
+@router.post("/articles/create-and-plan")
+def create_and_plan():
+    """Create an empty manual draft article and add it to the content plan."""
+    try:
+        article = db.insert_article(
+            url=f"manual://{uuid.uuid4()}",
+            title="Нова стаття",
+            content="",
+            image_url=None,
+            source="manual",
+        )
+        plan_item = db.add_to_content_plan(article["id"])
+        return {"article": article, "planItem": plan_item}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

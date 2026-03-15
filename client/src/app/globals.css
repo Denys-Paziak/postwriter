@@ -50,7 +50,7 @@
 :root {
   --background: #09090b;
   --foreground: #fafafa;
-  --card: #09090b;
+  --card: #111113;
   --card-foreground: #fafafa;
   --popover: #09090b;
   --popover-foreground: #fafafa;
@@ -62,7 +62,7 @@
   --muted-foreground: #a1a1aa;
   --accent: #1e293b;
   --accent-foreground: #fafafa;
-  --destructive: #7f1d1d;
+  --destructive: #ef4444;
   --border: #27272a;
   --input: #27272a;
   --ring: #3b82f6;
@@ -76,10 +76,18 @@
   --sidebar-foreground: #fafafa;
   --sidebar-primary: #3b82f6;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1e293b;
+  --sidebar-accent: #1a1a1d;
   --sidebar-accent-foreground: #fafafa;
   --sidebar-border: #1f1f22;
   --sidebar-ring: #3b82f6;
+
+  /* Status tokens */
+  --status-draft: #71717a;
+  --status-draft-bg: rgba(113, 113, 122, 0.12);
+  --status-progress: #3b82f6;
+  --status-progress-bg: rgba(59, 130, 246, 0.12);
+  --status-published: #22c55e;
+  --status-published-bg: rgba(34, 197, 94, 0.12);
 }
 
 @layer base {
@@ -94,6 +102,6 @@
   html {
     @apply font-sans;
     scrollbar-width: thin;
-    scrollbar-color: oklch(0.3 0.01 270) transparent;
+    scrollbar-color: #3b82f6 transparent;
   }
 }

@@ -165,7 +165,7 @@ export default function SettingsPage() {
                   value={profile.about}
                   onChange={(e) => setProfile(prev => ({ ...prev, about: e.target.value }))}
                   rows={6}
-                  className="bg-zinc-950/40 border-border/80 focus:bg-background resize-none text-base leading-relaxed rounded-xl transition-colors p-4"
+                  className="bg-background/40 border-border/80 focus:bg-background resize-none text-base leading-relaxed rounded-xl transition-colors p-4"
                 />
                 <p className="text-xs text-muted-foreground mt-2 px-1 flex items-center gap-1.5 opacity-80">
                   <Sparkles className="w-3 h-3 text-primary" />
@@ -176,13 +176,13 @@ export default function SettingsPage() {
           </div>
 
           {/* Negative Context Card */}
-          <div className="relative rounded-[1.5rem] bg-card border border-border/50 p-6 md:p-8 overflow-hidden group transition-all duration-300 hover:border-rose-500/30 hover:shadow-xl hover:shadow-black/10 focus-within:ring-1 focus-within:ring-ring focus-within:border-rose-500/50">
-            <div className="absolute inset-0 bg-gradient-to-br from-rose-500/0 via-transparent to-rose-500/[0.02] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none group-hover:bg-rose-500/10 transition-colors duration-500" />
+          <div className="relative rounded-[1.5rem] bg-card border border-border/50 p-6 md:p-8 overflow-hidden group transition-all duration-300 hover:border-destructive/30 hover:shadow-xl hover:shadow-black/10 focus-within:ring-1 focus-within:ring-ring focus-within:border-destructive/50">
+            <div className="absolute inset-0 bg-gradient-to-br from-destructive/0 via-transparent to-destructive/[0.02] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-destructive/5 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none group-hover:bg-destructive/10 transition-colors duration-500" />
 
             <div className="relative z-10 space-y-6">
               <div className="flex items-center gap-3 border-b border-border/40 pb-4">
-                <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 shadow-inner">
+                <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center text-destructive shadow-inner">
                   <ShieldAlert className="w-5 h-5" />
                 </div>
                 <div>
@@ -197,7 +197,7 @@ export default function SettingsPage() {
                   value={profile.avoid_words}
                   onChange={(e) => setProfile(prev => ({ ...prev, avoid_words: e.target.value }))}
                   rows={3}
-                  className="bg-zinc-950/40 border-border/80 focus:bg-background focus-visible:ring-rose-500/30 resize-none text-base leading-relaxed rounded-xl transition-colors p-4"
+                  className="bg-background/40 border-border/80 focus:bg-background focus-visible:ring-destructive/30 resize-none text-base leading-relaxed rounded-xl transition-colors p-4"
                 />
                 <p className="text-xs text-muted-foreground mt-2 px-1 opacity-80">
                   Вводьте заборонені слова через кому
@@ -207,13 +207,13 @@ export default function SettingsPage() {
           </div>
 
           {/* AI Settings Card */}
-          <div className="relative rounded-[1.5rem] bg-card border border-border/50 p-6 md:p-8 overflow-hidden group transition-all duration-300 hover:border-blue-500/30 hover:shadow-xl hover:shadow-black/10">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 via-transparent to-blue-500/[0.02] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <div className="relative rounded-[1.5rem] bg-card border border-border/50 p-6 md:p-8 overflow-hidden group transition-all duration-300 hover:border-primary/30 hover:shadow-xl hover:shadow-black/10">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/0 via-transparent to-primary/[0.02] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none group-hover:bg-primary/10 transition-colors duration-500" />
 
             <div className="relative z-10 space-y-6">
               <div className="flex items-center gap-3 border-b border-border/40 pb-4">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 shadow-inner">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
                   <Key className="w-5 h-5" />
                 </div>
                 <div>
@@ -231,7 +231,7 @@ export default function SettingsPage() {
                       placeholder="Введіть ваш API ключ (AI_...)"
                       value={profile.gemini_api_key || ''}
                       onChange={(e) => setProfile(prev => ({ ...prev, gemini_api_key: e.target.value }))}
-                      className="bg-zinc-950/40 border-border/80 focus:bg-background h-12 rounded-xl transition-all"
+                      className="bg-background/40 border-border/80 focus:bg-background h-12 rounded-xl transition-all"
                     />
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1 px-1 leading-normal">
@@ -243,13 +243,13 @@ export default function SettingsPage() {
           </div>
 
           {/* LinkedIn Integration Card */}
-          <div className="relative rounded-[1.5rem] bg-card border border-border/50 p-6 md:p-8 overflow-hidden group transition-all duration-300 hover:border-blue-500/30 hover:shadow-xl hover:shadow-black/10 focus-within:ring-1 focus-within:ring-ring focus-within:border-blue-500/50">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 via-transparent to-blue-600/[0.02] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <div className="relative rounded-[1.5rem] bg-card border border-border/50 p-6 md:p-8 overflow-hidden group transition-all duration-300 hover:border-primary/30 hover:shadow-xl hover:shadow-black/10 focus-within:ring-1 focus-within:ring-ring focus-within:border-primary/50">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/0 via-transparent to-primary/[0.02] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none group-hover:bg-primary/10 transition-colors duration-500" />
 
             <div className="relative z-10 space-y-6">
               <div className="flex items-center gap-3 border-b border-border/40 pb-4">
-                <div className="w-10 h-10 rounded-xl bg-blue-600/10 flex items-center justify-center text-blue-500 shadow-inner">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
                   <Link2 className="w-5 h-5" />
                 </div>
                 <div>
@@ -272,7 +272,7 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Щоб увімкнути публікацію, створіть безкоштовний додаток на{' '}
-                  <a href="https://www.linkedin.com/developers/" target="_blank" className="text-blue-400 hover:underline font-semibold">LinkedIn Developers</a>{' '}
+                  <a href="https://www.linkedin.com/developers/" target="_blank" className="text-primary hover:underline font-semibold">LinkedIn Developers</a>{' '}
                   і вкажіть Redirect URI: <code className="text-xs bg-zinc-800 px-2 py-0.5 rounded font-mono text-zinc-300">http://localhost:8000/api/linkedin/callback</code>
                 </p>
 
@@ -283,7 +283,7 @@ export default function SettingsPage() {
                       placeholder="Ваш LinkedIn Client ID"
                       value={profile.linkedin_client_id || ''}
                       onChange={(e) => setProfile(prev => ({ ...prev, linkedin_client_id: e.target.value }))}
-                      className="bg-zinc-950/40 border-border/80 focus:bg-background h-12 rounded-xl transition-all"
+                      className="bg-background/40 border-border/80 focus:bg-background h-12 rounded-xl transition-all"
                     />
                   </div>
                   <div className="space-y-2">
@@ -293,7 +293,7 @@ export default function SettingsPage() {
                       placeholder="Ваш LinkedIn Client Secret"
                       value={profile.linkedin_client_secret || ''}
                       onChange={(e) => setProfile(prev => ({ ...prev, linkedin_client_secret: e.target.value }))}
-                      className="bg-zinc-950/40 border-border/80 focus:bg-background h-12 rounded-xl transition-all"
+                      className="bg-background/40 border-border/80 focus:bg-background h-12 rounded-xl transition-all"
                     />
                   </div>
                 </div>
@@ -301,7 +301,7 @@ export default function SettingsPage() {
                 <Button
                   onClick={handleConnectLinkedIn}
                   disabled={linkedinConnecting || !profile.linkedin_client_id || !profile.linkedin_client_secret}
-                  className="h-11 px-6 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-lg shadow-blue-600/20 transition-all active:scale-[0.98] disabled:opacity-60"
+                  className="h-11 px-6 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-lg shadow-primary/20 transition-all active:scale-[0.98] disabled:opacity-60"
                 >
                   {linkedinConnecting ? (
                     <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Підключення...</>
@@ -334,9 +334,9 @@ export default function SettingsPage() {
 
         {/* Right Column: Examples (spans 5 cols) */}
         <div className="lg:col-span-5 flex flex-col h-full space-y-6 lg:space-y-8">
-          <div className="rounded-[1.5rem] bg-zinc-950/30 border border-border/40 p-6 md:p-8 flex-1 flex flex-col relative overflow-hidden group">
+          <div className="rounded-[1.5rem] bg-card border border-border/40 p-6 md:p-8 flex-1 flex flex-col relative overflow-hidden group">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 shadow-inner">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
                 <BookOpen className="w-5 h-5" />
               </div>
               <div>
@@ -359,7 +359,7 @@ export default function SettingsPage() {
                   onClick={handleAddPost}
                   disabled={!newPost.trim()}
                   size="sm"
-                  className="absolute bottom-3 right-3 rounded-lg bg-blue-500 text-white hover:bg-blue-400 font-medium tracking-wide shadow-sm"
+                  className="absolute bottom-3 right-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-medium tracking-wide shadow-sm"
                 >
                   <Plus className="w-4 h-4 mr-1" /> Додати
                 </Button>
@@ -388,7 +388,7 @@ export default function SettingsPage() {
                       </div>
                       <button
                         onClick={() => handleDeletePost(post.id)}
-                        className="opacity-0 group-hover/item:opacity-100 transition-opacity text-muted-foreground hover:text-rose-500 p-1 rounded-md hover:bg-rose-500/10"
+                        className="opacity-0 group-hover/item:opacity-100 transition-opacity text-muted-foreground hover:text-destructive p-1 rounded-md hover:bg-destructive/10"
                         title="Видалити"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -401,7 +401,7 @@ export default function SettingsPage() {
                 ))
               ) : (
                 <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-center opacity-60 rounded-2xl border border-dashed border-border/50 bg-card/20 p-6">
-                  <div className="w-12 h-12 rounded-full bg-zinc-800/50 flex items-center justify-center mb-4 text-muted-foreground">
+                  <div className="w-12 h-12 rounded-full bg-secondary/50 flex items-center justify-center mb-4 text-muted-foreground">
                     <PenLine className="w-5 h-5" />
                   </div>
                   <p className="text-sm text-muted-foreground max-w-[200px]">
