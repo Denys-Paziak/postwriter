@@ -71,7 +71,10 @@ export default function Dashboard() {
         </Link>
 
         {/* Primary Stat: Drafts (spans 4 cols) */}
-        <div className="md:col-span-4 rounded-[1.5rem] bg-card border border-border/50 p-8 flex flex-col justify-between relative overflow-hidden group transition-all duration-300 hover:border-border hover:shadow-xl hover:shadow-black/20">
+        <Link
+          href="/content-plan"
+          className="md:col-span-4 rounded-[1.5rem] bg-card border border-border/50 p-8 flex flex-col justify-between relative overflow-hidden group transition-all duration-300 hover:border-border hover:shadow-xl hover:shadow-black/20"
+        >
           <div className="absolute inset-0 bg-gradient-to-br from-primary/0 via-transparent to-primary/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none group-hover:bg-primary/10 transition-colors duration-500" />
 
@@ -90,12 +93,15 @@ export default function Dashboard() {
           <div className="mt-8 text-6xl lg:text-7xl font-bold tracking-tighter tabular-nums drop-shadow-md">
             {stats.totalDraft}
           </div>
-        </div>
+        </Link>
 
         {/* Secondary Stats Row (spans full width, nested grid) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:col-span-12">
 
-          <div className="rounded-2xl bg-background border border-border/50 p-6 flex items-center justify-between group hover:border-primary/30 hover:shadow-lg hover:shadow-black/10 transition-all duration-300">
+          <Link
+            href="/ideas?view=library"
+            className="rounded-2xl bg-background border border-border/50 p-6 flex items-center justify-between group hover:border-primary/30 hover:shadow-lg hover:shadow-black/10 transition-all duration-300"
+          >
             <div>
               <p className="text-sm font-medium text-muted-foreground mb-1">Збережені статті</p>
               <p className="text-3xl font-bold tabular-nums group-hover:text-primary transition-colors">{stats.totalArticles}</p>
@@ -103,9 +109,12 @@ export default function Dashboard() {
             <div className="w-12 h-12 rounded-full bg-card flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:scale-110 transition-all border border-border/40">
               <FileText className="w-5 h-5" />
             </div>
-          </div>
+          </Link>
 
-          <div className="rounded-2xl bg-background border border-border/50 p-6 flex items-center justify-between group hover:border-primary/30 hover:shadow-lg hover:shadow-black/10 transition-all duration-300">
+          <Link
+            href="/content-plan"
+            className="rounded-2xl bg-background border border-border/50 p-6 flex items-center justify-between group hover:border-primary/30 hover:shadow-lg hover:shadow-black/10 transition-all duration-300"
+          >
             <div>
               <p className="text-sm font-medium text-muted-foreground mb-1">В плані</p>
               <p className="text-3xl font-bold tabular-nums group-hover:text-primary transition-colors">{stats.totalPlanned}</p>
@@ -113,9 +122,12 @@ export default function Dashboard() {
             <div className="w-12 h-12 rounded-full bg-card flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:scale-110 transition-all border border-border/40">
               <CalendarRange className="w-5 h-5" />
             </div>
-          </div>
+          </Link>
 
-          <div className="rounded-2xl bg-background border border-border/50 p-6 flex items-center justify-between group hover:border-primary/30 hover:shadow-lg hover:shadow-black/10 transition-all duration-300">
+          <Link
+            href="/content-plan"
+            className="rounded-2xl bg-background border border-border/50 p-6 flex items-center justify-between group hover:border-primary/30 hover:shadow-lg hover:shadow-black/10 transition-all duration-300"
+          >
             <div>
               <p className="text-sm font-medium text-muted-foreground mb-1">Опубліковано</p>
               <p className="text-3xl font-bold tabular-nums group-hover:text-primary transition-colors">{stats.totalPublished}</p>
@@ -123,7 +135,7 @@ export default function Dashboard() {
             <div className="w-12 h-12 rounded-full bg-card flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:scale-110 transition-all border border-border/40">
               <CheckCircle2 className="w-5 h-5" />
             </div>
-          </div>
+          </Link>
 
         </div>
 

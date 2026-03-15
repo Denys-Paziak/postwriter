@@ -104,7 +104,7 @@ export default function ContentPlanPage() {
         throw new Error('Не вдалося відкрити редактор');
       }
 
-      router.push(`/content-plan/${planItemId}?mode=write`);
+      router.push(`/content-plan/${planItemId}?mode=write&new=1`);
     } catch (error) {
       console.error('Failed to create manual draft:', error);
     } finally {

@@ -47,3 +47,21 @@ def update_plan_item(item_id: int, body: UpdateContentPlanRequest):
         return db.update_content_plan(item_id, body.model_dump(exclude_none=True))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/content-plan/{item_id}/prune")
+def prune_plan_item(item_id: int):
+    """Delete a content plan item if it's empty (no generated post)."""
+    try:
+        item = db.get_content_plan_item(item_id)
+        if not item:
+            return {"success": True, "note": "not_found"}
+        
+        # Check if the post is actually empty
+        if not item.get("generated_post") or item["generated_post"].strip() == "":
+            db.delete_content_plan_item(item_id)
+            return {"success": True, "pruned": True}
+            
+        return {"success": True, "pruned": False, "reason": "not_empty"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

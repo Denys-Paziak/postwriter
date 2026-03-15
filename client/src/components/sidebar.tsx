@@ -1,19 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Lightbulb, CalendarRange, Settings, Zap, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Lightbulb, CalendarRange, Settings, Zap, ChevronRight, BookOpen } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: 'Дашборд', icon: LayoutDashboard },
   { href: '/ideas', label: 'Ідеї', icon: Lightbulb },
+  { href: '/ideas?view=library', label: 'Бібліотека', icon: BookOpen },
   { href: '/content-plan', label: 'Контент-план', icon: CalendarRange },
   { href: '/settings', label: 'Налаштування', icon: Settings },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentView = searchParams.get('view');
 
   return (
     <aside className="w-72 h-screen sticky top-0 flex flex-col bg-background border-r border-border/40">
@@ -36,8 +39,22 @@ export function Sidebar() {
         </p>
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href ||
-            (item.href !== '/' && pathname.startsWith(item.href));
+
+          // Improved active logic to handle query parameters (like ?view=library)
+          let isActive = false;
+          if (item.href.includes('?')) {
+            isActive = pathname + '?' + searchParams.toString() === item.href;
+          } else {
+            const isBaseIdeas = item.href === '/ideas';
+            const isOnLibrary = pathname === '/ideas' && currentView === 'library';
+
+            if (isBaseIdeas) {
+              isActive = pathname === '/ideas' && !currentView;
+            } else {
+              isActive = pathname === item.href ||
+                (item.href !== '/' && pathname.startsWith(item.href));
+            }
+          }
 
           return (
             <Link

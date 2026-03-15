@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch, apiUrl } from '@/lib/api';
 import {
@@ -32,10 +32,10 @@ import { toast } from '@/hooks/use-toast';
 type PostTone = 'value' | 'story' | 'insight' | 'opinion';
 
 const toneOptions: { key: PostTone; label: string; icon: LucideIcon }[] = [
-    { key: 'value',   label: 'Цінність', icon: Gem },
-    { key: 'opinion', label: 'Думка',    icon: MessageSquare },
-    { key: 'story',   label: 'Історія',  icon: BookOpen },
-    { key: 'insight', label: 'Інсайт',   icon: Lightbulb },
+    { key: 'value', label: 'Цінність', icon: Gem },
+    { key: 'opinion', label: 'Думка', icon: MessageSquare },
+    { key: 'story', label: 'Історія', icon: BookOpen },
+    { key: 'insight', label: 'Інсайт', icon: Lightbulb },
 ];
 
 interface ArticleItem {
@@ -171,6 +171,69 @@ export default function ContentPlanEditorPage() {
     const [generatingCarousel, setGeneratingCarousel] = useState(false);
     const [generatingImage, setGeneratingImage] = useState(false);
     const [activeTab, setActiveTab] = useState<'source' | 'research'>('source');
+
+    // Refs for robust cleanup on unmount/tab close
+    const itemRef = useRef(item);
+    const postRef = useRef(editingPost);
+    const genRef = useRef(generating);
+    const mountedAt = useRef(Date.now());
+
+    useEffect(() => { itemRef.current = item; }, [item]);
+    useEffect(() => { postRef.current = editingPost; }, [editingPost]);
+    useEffect(() => { genRef.current = generating; }, [generating]);
+
+    // Track isNew via ref for stable cleanup access
+    const isNewRef = useRef(false);
+    useEffect(() => {
+        if (searchParams.get('new') === '1') {
+            isNewRef.current = true;
+        }
+    }, [searchParams]);
+
+    // Robust cleanup logic
+    useEffect(() => {
+        const cleanupIfEmpty = (force = false) => {
+            const currentItem = itemRef.current;
+            const currentPost = postRef.current;
+            const isGenerating = genRef.current;
+            const isNew = isNewRef.current;
+
+            // We use the ID from the URL if item isn't loaded yet
+            const itemId = currentItem?.id || id;
+            if (!itemId || isGenerating) return;
+
+            // Grace period to avoid premature pruning during React dev mode double-mounts
+            // or rapid hydration re-renders. Skip grace period if it's a 'beforeunload' event.
+            if (!force && Date.now() - mountedAt.current < 2000) return;
+
+            // If we have content, don't prune
+            const hasContent = currentPost && currentPost.trim().length > 0;
+            if (hasContent) return;
+
+            // Only prune if it's a new draft OR we have the loaded item and it's empty
+            if (isNew || currentItem) {
+                const url = apiUrl(`/api/content-plan/${itemId}/prune`);
+                if (navigator.sendBeacon) {
+                    navigator.sendBeacon(url);
+                } else {
+                    fetch(url, { method: 'POST', keepalive: true }).catch(() => { });
+                }
+            }
+        };
+
+        const handleBeforeUnload = () => {
+            cleanupIfEmpty(true); // Force cleanup on tab close regardless of grace period
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            cleanupIfEmpty(false);
+        };
+        // Empty dependency array ensures this only runs ONCE per mount/unmount cycle
+        // to avoid premature pruning during hydration or minor re-renders.
+    }, []);
 
     useEffect(() => {
         setIsWritingManually(searchParams.get('mode') === 'write');
@@ -435,6 +498,11 @@ export default function ContentPlanEditorPage() {
         }
     };
 
+    const handleBack = async () => {
+        // handleBack is now simplified as it relies on the unmount cleanup
+        router.push('/content-plan');
+    };
+
     const handleDelete = async () => {
         if (!item) return;
         if (confirm('Ви впевнені, що хочете видалити цей пункт?')) {
@@ -539,7 +607,7 @@ export default function ContentPlanEditorPage() {
                     <div className="flex items-center gap-3 min-w-0">
                         <Button
                             variant="ghost" size="icon"
-                            onClick={() => router.push('/content-plan')}
+                            onClick={handleBack}
                             className="shrink-0 rounded-md hover:bg-secondary/60 h-8 w-8 text-muted-foreground hover:text-foreground transition-colors"
                         >
                             <ArrowLeft className="w-4 h-4" />
@@ -576,6 +644,25 @@ export default function ContentPlanEditorPage() {
                                     <p className="text-muted-foreground text-sm">Оберіть формат та тон для вашого майбутнього посту</p>
                                 </div>
 
+                                {/* Article Preview for Drafts */}
+                                <div className="w-full max-w-2xl mx-auto space-y-3 bg-card/40 rounded-2xl border border-border/60 p-5 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
+                                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                                        <FileText className="w-4 h-4 opacity-70" />
+                                        <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60">Оригінал статті</span>
+                                    </div>
+                                    <div className="text-foreground/90 text-[14px] leading-relaxed max-h-[280px] overflow-y-auto custom-scrollbar pr-3 whitespace-pre-wrap font-sans selection:bg-primary/30">
+                                        {item.content || 'Текст статті відсутній.'}
+                                    </div>
+                                    <div className="pt-2 border-t border-border/20 flex items-center justify-between">
+                                        <span className="text-[10px] text-muted-foreground">Прочитайте перед генерацією</span>
+                                        {item.url && (
+                                            <a href={item.url} target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline flex items-center gap-1">
+                                                Оригінальне посилання <ExternalLink className="w-2.5 h-2.5" />
+                                            </a>
+                                        )}
+                                    </div>
+                                </div>
+
                                 <div className="grid grid-cols-2 gap-3 w-full">
                                     {toneOptions.map(tone => {
                                         const isActive = selectedTone === tone.key;
@@ -584,11 +671,10 @@ export default function ContentPlanEditorPage() {
                                             <button
                                                 key={tone.key}
                                                 onClick={() => setSelectedTone(tone.key)}
-                                                className={`flex items-center p-4 rounded-xl border transition-all duration-200 gap-3 group ${
-                                                    isActive
-                                                        ? 'bg-foreground text-background border-foreground shadow-md scale-[1.02]'
-                                                        : 'bg-card/40 border-border/60 text-muted-foreground hover:bg-secondary/60 hover:border-foreground/30 hover:text-foreground'
-                                                }`}
+                                                className={`flex items-center p-4 rounded-xl border transition-all duration-200 gap-3 group ${isActive
+                                                    ? 'bg-foreground text-background border-foreground shadow-md scale-[1.02]'
+                                                    : 'bg-card/40 border-border/60 text-muted-foreground hover:bg-secondary/60 hover:border-foreground/30 hover:text-foreground'
+                                                    }`}
                                             >
                                                 <div className={`p-2 rounded-lg shrink-0 transition-colors ${isActive ? 'bg-background/20 text-background' : 'bg-secondary group-hover:bg-background text-foreground'}`}>
                                                     <Icon className="w-4 h-4" />
@@ -603,10 +689,9 @@ export default function ContentPlanEditorPage() {
                                 <div className="w-full">
                                     <div
                                         onClick={() => !item.research && setDoResearch(!doResearch)}
-                                        className={`flex items-center justify-between p-4 rounded-xl border transition-all select-none ${
-                                            item.research ? 'border-green-500/30 bg-green-500/5 cursor-default' :
+                                        className={`flex items-center justify-between p-4 rounded-xl border transition-all select-none ${item.research ? 'border-green-500/30 bg-green-500/5 cursor-default' :
                                             doResearch ? 'border-primary/40 bg-primary/5 cursor-pointer shadow-sm hover:bg-primary/10' : 'border-border/60 bg-card/40 cursor-pointer hover:bg-secondary/40'
-                                        }`}
+                                            }`}
                                     >
                                         <div className="flex items-center gap-3">
                                             <div className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 ${item.research ? 'bg-green-500/20 text-green-600 dark:text-green-400' : 'bg-secondary text-muted-foreground'}`}>
@@ -677,11 +762,10 @@ export default function ContentPlanEditorPage() {
                                                                                 <button
                                                                                     key={tone.key}
                                                                                     onClick={() => setSelectedTone(tone.key)}
-                                                                                    className={`px-3 py-1 rounded-md text-[11px] font-medium transition-all duration-200 whitespace-nowrap border ${
-                                                                                        isActive
-                                                                                            ? 'bg-background text-foreground shadow-sm border-border/50'
-                                                                                            : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/50'
-                                                                                    }`}
+                                                                                    className={`px-3 py-1 rounded-md text-[11px] font-medium transition-all duration-200 whitespace-nowrap border ${isActive
+                                                                                        ? 'bg-background text-foreground shadow-sm border-border/50'
+                                                                                        : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                                                                                        }`}
                                                                                 >
                                                                                     {tone.label}
                                                                                 </button>
@@ -795,11 +879,10 @@ export default function ContentPlanEditorPage() {
                                                 <div className="space-y-2">
                                                     <button
                                                         onClick={() => setContextPanel(contextPanel === 'source' ? 'none' : 'source')}
-                                                        className={`w-full h-10 px-4 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-between border ${
-                                                            contextPanel === 'source'
-                                                                ? 'bg-background text-foreground shadow-sm border-border'
-                                                                : 'bg-secondary/30 border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/50 hover:border-border/50'
-                                                        }`}
+                                                        className={`w-full h-10 px-4 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-between border ${contextPanel === 'source'
+                                                            ? 'bg-background text-foreground shadow-sm border-border'
+                                                            : 'bg-secondary/30 border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/50 hover:border-border/50'
+                                                            }`}
                                                     >
                                                         <div className="flex items-center gap-2">
                                                             <FileText className="w-4 h-4" />
@@ -818,7 +901,7 @@ export default function ContentPlanEditorPage() {
                                                                     </div>
                                                                     {item.url && item.url.startsWith('http') && (
                                                                         <a href={item.url} target="_blank" rel="noreferrer"
-                                                                           className="shrink-0 p-1 rounded hover:bg-secondary/60 transition-colors">
+                                                                            className="shrink-0 p-1 rounded hover:bg-secondary/60 transition-colors">
                                                                             <ExternalLink className="w-3 h-3" />
                                                                         </a>
                                                                     )}
@@ -835,11 +918,10 @@ export default function ContentPlanEditorPage() {
                                                 <div className="space-y-2">
                                                     <button
                                                         onClick={() => setContextPanel(contextPanel === 'research' ? 'none' : 'research')}
-                                                        className={`w-full h-10 px-4 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-between border ${
-                                                            contextPanel === 'research'
-                                                                ? 'bg-background text-foreground shadow-sm border-border'
-                                                                : 'bg-secondary/30 border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/50 hover:border-border/50'
-                                                        }`}
+                                                        className={`w-full h-10 px-4 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-between border ${contextPanel === 'research'
+                                                            ? 'bg-background text-foreground shadow-sm border-border'
+                                                            : 'bg-secondary/30 border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/50 hover:border-border/50'
+                                                            }`}
                                                     >
                                                         <div className="flex items-center gap-2">
                                                             {item.research && !researching ? <Check className="w-4 h-4 text-green-500" /> : <Search className="w-4 h-4" />}
@@ -892,89 +974,89 @@ export default function ContentPlanEditorPage() {
 
                                         <div className="space-y-6 animate-in fade-in duration-300">
                                             <div className="pt-0">
-                                            <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                <Sparkles className="w-3.5 h-3.5" />
-                                                Обкладинка
-                                            </h3>
-                                        <div className="flex-1 group">
-                                            {item.cover_image_url ? (
-                                                <div className="relative aspect-video rounded-lg overflow-hidden border border-border/50 bg-secondary/20">
-                                                    <img
-                                                        src={apiUrl(item.cover_image_url)}
-                                                        alt="Cover"
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                    <div className="absolute inset-0 bg-background/0 group-hover:bg-background/80 backdrop-blur-[2px] transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                    <Sparkles className="w-3.5 h-3.5" />
+                                                    Обкладинка
+                                                </h3>
+                                                <div className="flex-1 group">
+                                                    {item.cover_image_url ? (
+                                                        <div className="relative aspect-video rounded-lg overflow-hidden border border-border/50 bg-secondary/20">
+                                                            <img
+                                                                src={apiUrl(item.cover_image_url)}
+                                                                alt="Cover"
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                            <div className="absolute inset-0 bg-background/0 group-hover:bg-background/80 backdrop-blur-[2px] transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                                <button
+                                                                    onClick={handleGenerateImage}
+                                                                    disabled={generatingImage}
+                                                                    className="h-8 px-4 rounded-md bg-foreground text-background text-[11px] font-medium flex items-center gap-2 transition-transform hover:scale-105"
+                                                                >
+                                                                    {generatingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                                                                    Змінити обкладинку
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
                                                         <button
                                                             onClick={handleGenerateImage}
                                                             disabled={generatingImage}
-                                                            className="h-8 px-4 rounded-md bg-foreground text-background text-[11px] font-medium flex items-center gap-2 transition-transform hover:scale-105"
+                                                            className="w-full aspect-video flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 hover:border-foreground/30 hover:bg-secondary/20 transition-all text-muted-foreground hover:text-foreground"
                                                         >
-                                                            {generatingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                                                            Змінити обкладинку
+                                                            {generatingImage ? (
+                                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                            ) : (
+                                                                <Sparkles className="w-4 h-4" />
+                                                            )}
+                                                            <span className="text-[12px] font-medium">
+                                                                {generatingImage ? 'Генерація...' : 'Додати обкладинку'}
+                                                            </span>
                                                         </button>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    onClick={handleGenerateImage}
-                                                    disabled={generatingImage}
-                                                    className="w-full aspect-video flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 hover:border-foreground/30 hover:bg-secondary/20 transition-all text-muted-foreground hover:text-foreground"
-                                                >
-                                                    {generatingImage ? (
-                                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                                    ) : (
-                                                        <Sparkles className="w-4 h-4" />
                                                     )}
-                                                    <span className="text-[12px] font-medium">
-                                                        {generatingImage ? 'Генерація...' : 'Додати обкладинку'}
-                                                    </span>
-                                                </button>
-                                            )}
-                                        </div>
+                                                </div>
 
-                                        {/* Carousel Attachment */}
-                                        <div className="flex-1 group">
-                                            {item.carousel_url ? (
-                                                <div className="w-full aspect-video rounded-lg border border-border/50 bg-secondary/10 flex flex-col items-center justify-center p-4 relative overflow-hidden">
-                                                    <BookOpen className="w-8 h-8 text-muted-foreground mb-3 opacity-50" />
-                                                    <span className="text-[12px] font-medium text-foreground">Карусель PDF</span>
+                                                {/* Carousel Attachment */}
+                                                <div className="flex-1 group">
+                                                    {item.carousel_url ? (
+                                                        <div className="w-full aspect-video rounded-lg border border-border/50 bg-secondary/10 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+                                                            <BookOpen className="w-8 h-8 text-muted-foreground mb-3 opacity-50" />
+                                                            <span className="text-[12px] font-medium text-foreground">Карусель PDF</span>
 
-                                                    <div className="absolute inset-0 bg-background/0 group-hover:bg-background/90 backdrop-blur-[2px] transition-all flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                                                        <a
-                                                            href={apiUrl(item.carousel_url)}
-                                                            download target="_blank" rel="noreferrer"
-                                                            className="h-8 px-4 rounded-md bg-foreground text-background text-[11px] font-medium flex items-center gap-2 transition-transform hover:scale-105 w-3/4 justify-center"
-                                                        >
-                                                            Завантажити
-                                                        </a>
+                                                            <div className="absolute inset-0 bg-background/0 group-hover:bg-background/90 backdrop-blur-[2px] transition-all flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                                                                <a
+                                                                    href={apiUrl(item.carousel_url)}
+                                                                    download target="_blank" rel="noreferrer"
+                                                                    className="h-8 px-4 rounded-md bg-foreground text-background text-[11px] font-medium flex items-center gap-2 transition-transform hover:scale-105 w-3/4 justify-center"
+                                                                >
+                                                                    Завантажити
+                                                                </a>
+                                                                <button
+                                                                    onClick={handleGenerateCarousel}
+                                                                    disabled={generatingCarousel}
+                                                                    className="h-8 px-4 rounded-md bg-secondary text-foreground text-[11px] font-medium flex items-center gap-2 transition-transform hover:scale-105 w-3/4 justify-center"
+                                                                    title="Перегенерувати"
+                                                                >
+                                                                    {generatingCarousel ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                                                                    Оновити PDF
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
                                                         <button
                                                             onClick={handleGenerateCarousel}
                                                             disabled={generatingCarousel}
-                                                            className="h-8 px-4 rounded-md bg-secondary text-foreground text-[11px] font-medium flex items-center gap-2 transition-transform hover:scale-105 w-3/4 justify-center"
-                                                            title="Перегенерувати"
+                                                            className="w-full aspect-video flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 hover:border-foreground/30 hover:bg-secondary/20 transition-all text-muted-foreground hover:text-foreground"
                                                         >
-                                                            {generatingCarousel ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                                                            Оновити PDF
+                                                            {generatingCarousel ? (
+                                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                            ) : (
+                                                                <BookOpen className="w-4 h-4" />
+                                                            )}
+                                                            <span className="text-[12px] font-medium">
+                                                                {generatingCarousel ? 'Генерація...' : 'Створити карусель'}
+                                                            </span>
                                                         </button>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    onClick={handleGenerateCarousel}
-                                                    disabled={generatingCarousel}
-                                                    className="w-full aspect-video flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 hover:border-foreground/30 hover:bg-secondary/20 transition-all text-muted-foreground hover:text-foreground"
-                                                >
-                                                    {generatingCarousel ? (
-                                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                                    ) : (
-                                                        <BookOpen className="w-4 h-4" />
                                                     )}
-                                                    <span className="text-[12px] font-medium">
-                                                        {generatingCarousel ? 'Генерація...' : 'Створити карусель'}
-                                                    </span>
-                                                </button>
-                                            )}
                                                 </div>
                                             </div>
                                         </div>
@@ -1004,17 +1086,15 @@ export default function ContentPlanEditorPage() {
                 <div className="flex bg-secondary/30 p-1 rounded-lg border border-border/40 w-full mb-6">
                     <button
                         onClick={() => setActiveTab('source')}
-                        className={`flex-1 py-1.5 text-[12px] font-medium transition-all duration-200 rounded-md ${
-                            activeTab === 'source' ? 'bg-background text-foreground shadow-sm border border-border/50' : 'text-muted-foreground hover:bg-secondary/50'
-                        }`}
+                        className={`flex-1 py-1.5 text-[12px] font-medium transition-all duration-200 rounded-md ${activeTab === 'source' ? 'bg-background text-foreground shadow-sm border border-border/50' : 'text-muted-foreground hover:bg-secondary/50'
+                            }`}
                     >
                         Стаття
                     </button>
                     <button
                         onClick={() => setActiveTab('research')}
-                        className={`flex-1 py-1.5 text-[12px] font-medium transition-all duration-200 rounded-md ${
-                            activeTab === 'research' ? 'bg-background text-foreground shadow-sm border border-border/50' : 'text-muted-foreground hover:bg-secondary/50'
-                        }`}
+                        className={`flex-1 py-1.5 text-[12px] font-medium transition-all duration-200 rounded-md ${activeTab === 'research' ? 'bg-background text-foreground shadow-sm border border-border/50' : 'text-muted-foreground hover:bg-secondary/50'
+                            }`}
                     >
                         Дослідження
                     </button>
@@ -1075,11 +1155,10 @@ export default function ContentPlanEditorPage() {
                                             <button
                                                 key={tone.key}
                                                 onClick={() => setSelectedTone(tone.key)}
-                                                className={`flex-1 py-1.5 text-[11px] font-medium transition-all duration-200 rounded-md ${
-                                                    selectedTone === tone.key
-                                                        ? 'bg-background text-foreground shadow-sm border border-border/50'
-                                                        : 'text-muted-foreground hover:bg-secondary/50'
-                                                }`}
+                                                className={`flex-1 py-1.5 text-[11px] font-medium transition-all duration-200 rounded-md ${selectedTone === tone.key
+                                                    ? 'bg-background text-foreground shadow-sm border border-border/50'
+                                                    : 'text-muted-foreground hover:bg-secondary/50'
+                                                    }`}
                                             >
                                                 {tone.label}
                                             </button>
